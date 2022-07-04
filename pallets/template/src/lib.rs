@@ -18,6 +18,7 @@ mod benchmarking;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	//use sp_runtime::generic::BlockId::Number;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -37,6 +38,9 @@ pub mod pallet {
 	// Learn more about declaring storage items:
 	// https://docs.substrate.io/v3/runtime/storage#declaring-storage-items
 	pub type Something<T> = StorageValue<_, u32>;
+
+	#[pallet::storage]
+	pub type Number<T:Config> = StorageMap<_,Blake2_128Concat,T::AccountId,u32,ValueQuery, >;
 
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
@@ -77,6 +81,22 @@ pub mod pallet {
 			// Emit an event.
 			Self::deposit_event(Event::SomethingStored(something, who));
 			// Return a successful DispatchResultWithPostInfo
+			Ok(())
+		}
+
+		#[pallet::weight(10_000+ T::DbWeight::get().writes(1))]
+		pub fn put_number(origin:OriginFor<T>,number:u32) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			<Number<T>>::insert(who.clone(),number);
+			Self::deposit_event(Event::SomethingStored(number,who));
+			Ok(())
+		}
+
+		#[pallet::weight(10_000+ T::DbWeight::get().writes(1))]
+		pub fn delete_number(origin:OriginFor<T>) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			<Number<T>>::remove(who.clone());
+			Self::deposit_event(Event::SomethingStored(0,who));
 			Ok(())
 		}
 
