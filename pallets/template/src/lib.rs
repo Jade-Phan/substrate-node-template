@@ -18,6 +18,7 @@ mod benchmarking;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_std::vec::Vec;
 	//use sp_runtime::generic::BlockId::Number;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -49,7 +50,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
-		SomethingStored(u32, T::AccountId),
+		SomethingStored(u32, T::AccountId)
 	}
 
 	// Errors inform users that something went wrong.
@@ -58,7 +59,7 @@ pub mod pallet {
 		/// Error names should be descriptive.
 		NoneValue,
 		/// Errors should have helpful documentation associated with them.
-		StorageOverflow,
+		StorageOverflow
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
