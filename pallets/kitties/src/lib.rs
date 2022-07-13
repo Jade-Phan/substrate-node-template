@@ -20,22 +20,22 @@ pub mod pallet {
 	pub use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use frame_support::traits::Randomness;
 
 	//use sp_runtime::generic::BlockId::Number;
 
-	#[derive(TypeInfo, Encode, Decode, Debug,Clone)]
-	pub enum Gender{
-		Male, Female,
+	#[derive(TypeInfo, Encode, Decode, Debug, Clone)]
+	pub enum Gender {
+		Male,
+		Female,
 	}
 
 	#[derive(TypeInfo, Default, Encode, Decode)]
 	#[scale_info(skip_type_params(T))]
-	pub struct Kitty<T:Config>{
+	pub struct Kitty<T: Config> {
 		dna: Vec<u8>,
-		price : u32,
+		price: u32,
 		gender: Gender,
-		owner: T::AccountId
+		owner: T::AccountId,
 	}
 
 	impl Default for Gender {
@@ -43,6 +43,7 @@ pub mod pallet {
 			Gender::Female
 		}
 	}
+
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -51,32 +52,33 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
+	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	// The pallet's runtime storage items.
 	// https://docs.substrate.io/v3/runtime/storage
 	#[pallet::storage]
-	#[pallet::getter(fn numberOfKitty)]
+	#[pallet::getter(fn quantity)]
 	// Learn more about declaring storage items:
 	// https://docs.substrate.io/v3/runtime/storage#declaring-storage-items
 	pub type Kitties<T> = StorageValue<_, u8, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn kittyDetail)]
+	#[pallet::getter(fn kitty_detail)]
 	// Key :Id, Value: Student
-	pub(super) type KittyDetail<T:Config> = StorageMap<_,Blake2_128Concat,Vec<u8>, Kitty<T>, OptionQuery>;
+	pub(super) type KittyDetail<T: Config> = StorageMap<_, Blake2_128Concat, Vec<u8>, Kitty<T>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn ownership)]
 	// Key :Id, Value: Student
-	pub(super) type OwnerDetail<T:Config> = StorageMap<_,Blake2_128Concat,T::AccountId, Vec<Vec<u8>>, OptionQuery>;
+	pub(super) type OwnerDetail<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<Vec<u8>>, ValueQuery>;
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		CreatedKitty(Vec<u8>,T::AccountId),
+		CreatedKitty(Vec<u8>, T::AccountId),
+		TransferKitty(T::AccountId, T::AccountId, Vec<u8>),
 	}
 
 	#[pallet::error]
@@ -84,42 +86,65 @@ pub mod pallet {
 		PriceTooLow,
 		AlreadyExisted,
 		NoneExisted,
+		WrongReceiver,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(10_000+ T::DbWeight::get().writes(1))]
-		pub fn create_kitty(origin:OriginFor<T>,dna: Vec<u8>,price:u32) -> DispatchResult {
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		pub fn create_kitty(origin: OriginFor<T>, dna: Vec<u8>, price: u32) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(price>0, Error::<T>::PriceTooLow);
+			ensure!(!KittyDetail::<T>::contains_key(&dna), Error::<T>::AlreadyExisted);
 			let gender = Self::kitty_gender(dna.clone())?;
-			let kitty = Kitty{
+			let kitty = Kitty {
 				dna: dna.clone(),
 				price: price,
 				gender: gender,
 				owner: who.clone(),
 			};
 
-			let mut current_number = Self::numberOfKitty();
+			let mut current_number = Self::quantity();
 			<KittyDetail<T>>::insert(&dna, kitty);
 
-			current_number = current_number + 1;
+			current_number += 1;
 
 			Kitties::<T>::put(current_number);
-			let mut list_kitty = OwnerDetail::<T>::get(&who).unwrap_or_else(|| {Vec::new()});
-			list_kitty.push(dna.clone());
-			OwnerDetail::<T>::mutate(&who, list_kitty);
 
-			Self::deposit_event(Event::CreatedKitty(dna,who));
+			// use Value Query
+			OwnerDetail::<T>::mutate(&who, |list_kitty| list_kitty.push(dna.clone()));
+
+			Self::deposit_event(Event::CreatedKitty(dna, who));
 			Ok(())
 		}
 
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		pub fn transfer_kitty(origin: OriginFor<T>, dna: Vec<u8>, to: T::AccountId) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			ensure!(to != who, "Cannot transfer to owner");
+			ensure!(KittyDetail::<T>::contains_key(&dna),Error::<T>::NoneExisted);
+			let sender_kitties = OwnerDetail::<T>::get(&who);
+			let mut index: i8 = -1;
+			for i in 0..sender_kitties.len() {
+				if sender_kitties[i] == dna {
+					index = i.try_into().unwrap();
+				}
+			}
+			ensure!( index != -1, Error::<T>::NoneExisted);
+			// remove dna of kitty from the owner's list
+			OwnerDetail::<T>::mutate(&who, |list_kitty| list_kitty.swap_remove(index.try_into().unwrap()));
+
+			// insert dna of new kitty to the new owner's list
+			OwnerDetail::<T>::mutate(&to, |list_kitty| list_kitty.push(dna.clone()));
+			Self::deposit_event(Event::TransferKitty(who, to, dna));
+			Ok(())
+		}
 	}
 }
 
 //helper function
-impl<T> Pallet<T>{
-	fn kitty_gender(dna:Vec<u8>) -> Result<Gender,Error<T>>{
+impl<T> Pallet<T> {
+	fn kitty_gender(dna: Vec<u8>) -> Result<Gender, Error<T>> {
 		let mut result = Gender::Female;
 		if dna.len() % 2 == 0 {
 			result = Gender::Male
