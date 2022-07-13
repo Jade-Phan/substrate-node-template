@@ -105,8 +105,11 @@ pub mod pallet {
 			current_number = current_number + 1;
 
 			Kitties::<T>::put(current_number);
-			OwnerDetail::<T>::put(who,)
-			Self::deposit_event(Event::CreatedKitty(dna,price,who));
+			let mut list_kitty = OwnerDetail::<T>::get(&who).unwrap_or_else(|| {Vec::new()});
+			list_kitty.push(dna.clone());
+			OwnerDetail::<T>::mutate(&who, list_kitty);
+
+			Self::deposit_event(Event::CreatedKitty(dna,who));
 			Ok(())
 		}
 
