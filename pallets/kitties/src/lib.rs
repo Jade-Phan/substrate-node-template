@@ -82,7 +82,8 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		PriceTooLow,
-		AlreadyExists,
+		AlreadyExisted,
+		NoneExisted,
 	}
 
 	#[pallet::call]
