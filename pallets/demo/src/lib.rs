@@ -24,16 +24,17 @@ pub mod pallet {
 	pub type Id = u32;
 
 	#[derive(TypeInfo, Encode, Decode, Debug)]
-	pub enum Gender{
-		Male, Female,
+	pub enum Gender {
+		Male,
+		Female,
 	}
 	#[derive(TypeInfo, Default, Encode, Decode)]
 	#[scale_info(skip_type_params(T))]
-	pub struct Student<T:Config>{
+	pub struct Student<T: Config> {
 		name: Vec<u8>,
 		age: u8,
 		gender: Gender,
-		account: T::AccountId
+		account: T::AccountId,
 	}
 
 	impl Default for Gender {
@@ -64,7 +65,8 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn students)]
 	// Key :Id, Value: Student
-	pub(super) type Students<T:Config> = StorageMap<_,Blake2_128Concat,Id, Student<T>, OptionQuery>;
+	pub(super) type Students<T: Config> =
+		StorageMap<_, Blake2_128Concat, Id, Student<T>, OptionQuery>;
 
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
@@ -73,7 +75,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
-		CreatedStudent(Vec<u8>,u8),
+		CreatedStudent(Vec<u8>, u8),
 	}
 
 	// Errors inform users that something went wrong.
@@ -91,16 +93,11 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(10_000+ T::DbWeight::get().writes(1))]
-		pub fn create_student(origin:OriginFor<T>,name: Vec<u8>,age:u8) -> DispatchResult {
+		pub fn create_student(origin: OriginFor<T>, name: Vec<u8>, age: u8) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(age>20, Error::<T>::TooYoung);
+			ensure!(age > 20, Error::<T>::TooYoung);
 			let gender = Self::gen_gender(name.clone())?;
-			let student = Student{
-				name: name.clone(),
-				age: age,
-				gender: gender,
-				account: who,
-			};
+			let student = Student { name: name.clone(), age, gender, account: who };
 			// let current_id = Self::student_id();
 			// let current_id = StudentIds::<T>::get();
 			let mut current_id = <StudentIds<T>>::get();
@@ -111,16 +108,15 @@ pub mod pallet {
 			current_id = current_id + 1;
 
 			StudentIds::<T>::put(current_id);
-			Self::deposit_event(Event::CreatedStudent(name,age));
+			Self::deposit_event(Event::CreatedStudent(name, age));
 			Ok(())
 		}
-
 	}
 }
 
 //helper function
-impl<T> Pallet<T>{
-	fn gen_gender(name:Vec<u8>) -> Result<Gender,Error<T>>{
+impl<T> Pallet<T> {
+	fn gen_gender(name: Vec<u8>) -> Result<Gender, Error<T>> {
 		let mut result = Gender::Female;
 		if name.len() % 2 == 0 {
 			result = Gender::Male

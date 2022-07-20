@@ -43,7 +43,7 @@ pub mod pallet {
 	pub type Something<T> = StorageValue<_, u32>;
 
 	#[pallet::storage]
-	pub type Number<T:Config> = StorageMap<_,Blake2_128Concat,T::AccountId,u32,ValueQuery, >;
+	pub type Number<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
 
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
@@ -89,15 +89,15 @@ pub mod pallet {
 		}
 
 		#[pallet::weight(10_000+ T::DbWeight::get().writes(1))]
-		pub fn put_number(origin:OriginFor<T>,number:u32) -> DispatchResult {
+		pub fn put_number(origin: OriginFor<T>, number: u32) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			<Number<T>>::insert(who.clone(),number);
-			Self::deposit_event(Event::SomethingStored(number,who));
+			<Number<T>>::insert(who.clone(), number);
+			Self::deposit_event(Event::SomethingStored(number, who));
 			Ok(())
 		}
 
 		#[pallet::weight(10_000+ T::DbWeight::get().writes(1))]
-		pub fn delete_number(origin:OriginFor<T>) -> DispatchResult {
+		pub fn delete_number(origin: OriginFor<T>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			<Number<T>>::remove(who.clone());
 			Self::deposit_event(Event::SomethingDeleted(who));
@@ -126,18 +126,18 @@ pub mod pallet {
 }
 
 //helper function for update storage
-impl<T:Config> Pallet<T>{
-	pub fn update_storage(value:u32) -> DispatchResult{
+impl<T: Config> Pallet<T> {
+	pub fn update_storage(value: u32) -> DispatchResult {
 		Something::<T>::put(value);
 		Ok(())
 	}
 }
 
-pub trait DoSomething{
-	fn increase_value(value:u32) -> u32;
+pub trait DoSomething {
+	fn increase_value(value: u32) -> u32;
 }
 
-impl<T:Config> DoSomething for Pallet<T>{
+impl<T: Config> DoSomething for Pallet<T> {
 	fn increase_value(value: u32) -> u32 {
 		value + 5
 	}
