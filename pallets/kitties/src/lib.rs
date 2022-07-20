@@ -131,7 +131,7 @@ pub mod pallet {
 				}
 			}
 			ensure!( index != -1, Error::<T>::NoneExisted);
-			// remove dna of kitty from the owner's list
+			// remove dna of kitty from the old owner's list
 			OwnerDetail::<T>::mutate(&who, |list_kitty| list_kitty.swap_remove(index.try_into().unwrap()));
 
 			// insert dna of new kitty to the new owner's list
