@@ -281,6 +281,7 @@ impl pallet_demo::Config for Runtime {
 
 impl pallet_kitties::Config for Runtime {
 	type Event = Event;
+	type KittyCurrency = Balances;
 }
 
 impl pallet_coupling::Config for Runtime {

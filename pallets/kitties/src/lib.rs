@@ -5,7 +5,6 @@
 /// <https://docs.substrate.io/v3/runtime/frame>
 pub use pallet::*;
 pub use sp_std::vec::Vec;
-
 #[cfg(test)]
 mod mock;
 
@@ -16,10 +15,12 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 
 use frame_support::traits::Currency;
+use frame_support::traits::tokens::Balance;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
+type BalanceOf<T> = <<T as Config>::KittyCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 #[frame_support::pallet]
 pub mod pallet {
 	pub use super::*;
@@ -36,9 +37,10 @@ pub mod pallet {
 	#[scale_info(skip_type_params(T))]
 	pub struct Kitty<T: Config> {
 		dna: Vec<u8>,
-		price: u32,
+		price: BalanceOf<T>,
 		gender: Gender,
 		owner: T::AccountId,
+		created_date: Date<T>,
 	}
 
 	impl Default for Gender {
@@ -100,10 +102,11 @@ pub mod pallet {
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn create_kitty(origin: OriginFor<T>, dna: Vec<u8>, price: u32) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			log::info!("total balance:{:?}", T::KittyCurrency::total_balance(&who));
 			ensure!(price > 0, Error::<T>::PriceTooLow);
 			ensure!(!KittyDetail::<T>::contains_key(&dna), Error::<T>::AlreadyExisted);
 			let gender = Self::kitty_gender(dna.clone())?;
-			let kitty = Kitty { dna: dna.clone(), price, gender, owner: who.clone() };
+			let kitty = Kitty { dna: dna.clone(), price: price.into(), gender, owner: who.clone() };
 
 			let mut current_number = Self::quantity();
 			<KittyDetail<T>>::insert(&dna, kitty);

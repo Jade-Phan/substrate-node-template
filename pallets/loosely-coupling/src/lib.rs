@@ -13,9 +13,9 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-use pallet_template::DoSomething;
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
+use pallet_template::DoSomething;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -44,7 +44,7 @@ pub mod pallet {
 	pub type Something<T> = StorageValue<_, u32>;
 
 	#[pallet::storage]
-	pub type Number<T:Config> = StorageMap<_,Blake2_128Concat,T::AccountId,u32,ValueQuery, >;
+	pub type Number<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
 
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
@@ -53,7 +53,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
-		IncreaseValue(u32)
+		IncreaseValue(u32),
 	}
 
 	// Errors inform users that something went wrong.
@@ -73,13 +73,12 @@ pub mod pallet {
 		/// An example dispatchable that takes a singles value as a parameter, writes the value to
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-		pub fn increase(origin: OriginFor<T>,something:u32) -> DispatchResult {
+		pub fn increase(origin: OriginFor<T>, something: u32) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let new_value = T::Increase::increase_value(something);
 			// Emit an event.
 			Self::deposit_event(Event::IncreaseValue(new_value));
 			Ok(())
 		}
-
 	}
 }
