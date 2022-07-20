@@ -42,11 +42,14 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+/// Import the template pallet.
 pub use pallet_coupling;
 pub use pallet_demo;
 pub use pallet_kitties;
-/// Import the template pallet.
 pub use pallet_template;
+pub use loosely_coupling;
+
+use pallet_template::DoSomething;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -284,6 +287,11 @@ impl pallet_coupling::Config for Runtime {
 	type Event = Event;
 }
 
+impl loosely_coupling::Config for Runtime {
+	type Event = Event;
+	type Increase =  TemplateModule;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -304,6 +312,7 @@ construct_runtime!(
 		DemoModule : pallet_demo,
 		KittiesModule: pallet_kitties,
 		CouplingModule: pallet_coupling,
+		LooselyCouplingModule: loosely_coupling,
 	}
 );
 
