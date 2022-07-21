@@ -94,9 +94,11 @@ pub mod pallet {
 		PriceTooLow,
 		AlreadyExisted,
 		NoneExisted,
+		NotOwner,
 		WrongReceiver,
 		OwnerAlready,
 		OutOfBound,
+		IndexOutOfBounds,
 	}
 
 	#[pallet::call]
@@ -141,21 +143,19 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(to != who, Error::<T>::OwnerAlready);
 			ensure!(KittyDetail::<T>::contains_key(&dna), Error::<T>::NoneExisted);
-			let sender_kitties = OwnerDetail::<T>::get(&who);
-			let mut index: i8 = -1;
-			for i in 0..sender_kitties.len() {
-				if sender_kitties[i] == dna {
-					index = i.try_into().unwrap();
-				}
-			}
-			ensure!(index != -1, Error::<T>::NoneExisted);
+
 			// remove dna of kitty from the old owner's list
-			OwnerDetail::<T>::try_mutate(&who, |list_kitty| {
-				list_kitty.swap_remove(index.try_into().unwrap())
-			});
+			<OwnerDetail<T>>::try_mutate(&who, |owned| {
+				if let Some(ind) = owned.iter().position(|&id| id == *dna) {
+					owned.swap_remove(ind);
+					return Ok(());
+				}
+				Err(())
+			})
+				.map_err(|_| Error::<T>::NotOwner)?;
 
 			// insert dna of new kitty to the new owner's list
-			OwnerDetail::<T>::mutate(&to, |list_kitty| list_kitty.push(dna.clone()))
+			OwnerDetail::<T>::try_mutate(&to, |list_kitty| list_kitty.try_push(dna.clone()))
 				.map_err(|_| Error::<T>::OutOfBound)?;
 			Self::deposit_event(Event::TransferKitty(who, to, dna));
 			Ok(())
