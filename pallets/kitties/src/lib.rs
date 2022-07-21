@@ -1,31 +1,30 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use frame_support::pallet_prelude::*;
+use frame_support::traits::Currency;
+use frame_support::traits::UnixTime;
+use frame_system::pallet_prelude::*;
+pub use sp_std::vec::Vec;
+
 /// Edit this file to define custom logic or remove it if it is not needed.
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
 /// <https://docs.substrate.io/v3/runtime/frame>
 pub use pallet::*;
-pub use sp_std::vec::Vec;
+
 #[cfg(test)]
 mod mock;
 
 #[cfg(test)]
 mod tests;
 
-use frame_support::pallet_prelude::*;
-use frame_system::pallet_prelude::*;
-
-use frame_support::traits::Currency;
-use frame_support::traits::tokens::Balance;
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 type BalanceOf<T> = <<T as Config>::KittyCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
 #[frame_support::pallet]
 pub mod pallet {
 	pub use super::*;
-
-	//use sp_runtime::generic::BlockId::Number;
 
 	#[derive(TypeInfo, Encode, Decode, Debug, Clone)]
 	pub enum Gender {
@@ -40,7 +39,7 @@ pub mod pallet {
 		price: BalanceOf<T>,
 		gender: Gender,
 		owner: T::AccountId,
-		created_date: Date<T>,
+		created_date: u64,
 	}
 
 	impl Default for Gender {
@@ -54,7 +53,8 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-		type KittyCurrency: Currency<Self::AccountId>; // Self is Trait config
+		type KittyCurrency: Currency<Self::AccountId>;
+		type Timestamp: UnixTime;
 	}
 
 	#[pallet::pallet]
@@ -74,18 +74,18 @@ pub mod pallet {
 	#[pallet::getter(fn kitty_detail)]
 	// Key :Id, Value: Student
 	pub(super) type KittyDetail<T: Config> =
-		StorageMap<_, Blake2_128Concat, Vec<u8>, Kitty<T>, OptionQuery>;
+	StorageMap<_, Blake2_128Concat, Vec<u8>, Kitty<T>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn ownership)]
 	// Key :Id, Value: Student
 	pub(super) type OwnerDetail<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, Vec<Vec<u8>>, ValueQuery>;
+	StorageMap<_, Blake2_128Concat, T::AccountId, Vec<Vec<u8>>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		CreatedKitty(Vec<u8>, T::AccountId),
+		CreatedKitty(Vec<u8>, T::AccountId, u64),
 		TransferKitty(T::AccountId, T::AccountId, Vec<u8>),
 	}
 
@@ -106,7 +106,8 @@ pub mod pallet {
 			ensure!(price > 0, Error::<T>::PriceTooLow);
 			ensure!(!KittyDetail::<T>::contains_key(&dna), Error::<T>::AlreadyExisted);
 			let gender = Self::kitty_gender(dna.clone())?;
-			let kitty = Kitty { dna: dna.clone(), price: price.into(), gender, owner: who.clone() };
+			let timestamp = T::Timestamp::now();
+			let kitty = Kitty { dna: dna.clone(), price: price.into(), gender: gender, owner: who.clone(), created_date: timestamp.as_secs() };
 
 			let mut current_number = Self::quantity();
 			<KittyDetail<T>>::insert(&dna, kitty);
@@ -118,7 +119,7 @@ pub mod pallet {
 			// use Value Query
 			OwnerDetail::<T>::mutate(&who, |list_kitty| list_kitty.push(dna.clone()));
 
-			Self::deposit_event(Event::CreatedKitty(dna, who));
+			Self::deposit_event(Event::CreatedKitty(dna, who, timestamp.as_secs()));
 			Ok(())
 		}
 
@@ -153,7 +154,7 @@ pub mod pallet {
 }
 
 //helper function
-impl<T> Pallet<T> {
+impl<T: Config> Pallet<T> {
 	fn kitty_gender(dna: Vec<u8>) -> Result<Gender, Error<T>> {
 		let mut result = Gender::Female;
 		if dna.len() % 2 == 0 {
