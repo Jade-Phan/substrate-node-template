@@ -1,14 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
-use frame_support::traits::Currency;
+use frame_support::storage::bounded_vec::BoundedVec;
 use frame_support::traits::UnixTime;
+use frame_support::traits::{ConstU8, Currency};
 use frame_system::pallet_prelude::*;
 pub use sp_std::vec::Vec;
-
-/// Edit this file to define custom logic or remove it if it is not needed.
-/// Learn more about FRAME and the core library of Substrate FRAME pallets:
-/// <https://docs.substrate.io/v3/runtime/frame>
+const LIMIT_BOUNDED: u8 = 10;
 pub use pallet::*;
 
 #[cfg(test)]
@@ -20,19 +19,20 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-type BalanceOf<T> = <<T as Config>::KittyCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
+type BalanceOf<T> =
+	<<T as Config>::KittyCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type ListKitties = BoundedVec<Vec<u8>, ConstU8<LIMIT_BOUNDED>>;
 #[frame_support::pallet]
 pub mod pallet {
 	pub use super::*;
 
-	#[derive(TypeInfo, Encode, Decode, Debug, Clone)]
+	#[derive(Clone, Encode, Decode, PartialEq, Copy, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	pub enum Gender {
 		Male,
 		Female,
 	}
 
-	#[derive(TypeInfo, Default, Encode, Decode)]
+	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	pub struct Kitty<T: Config> {
 		dna: Vec<u8>,
@@ -74,13 +74,13 @@ pub mod pallet {
 	#[pallet::getter(fn kitty_detail)]
 	// Key :Id, Value: Student
 	pub(super) type KittyDetail<T: Config> =
-	StorageMap<_, Blake2_128Concat, Vec<u8>, Kitty<T>, OptionQuery>;
+		StorageMap<_, Blake2_128Concat, Vec<u8>, Kitty<T>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn ownership)]
 	// Key :Id, Value: Student
 	pub(super) type OwnerDetail<T: Config> =
-	StorageMap<_, Blake2_128Concat, T::AccountId, Vec<Vec<u8>>, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, T::AccountId, ListKitties, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
@@ -95,6 +95,8 @@ pub mod pallet {
 		AlreadyExisted,
 		NoneExisted,
 		WrongReceiver,
+		OwnerAlready,
+		OutOfBound,
 	}
 
 	#[pallet::call]
@@ -102,12 +104,18 @@ pub mod pallet {
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn create_kitty(origin: OriginFor<T>, dna: Vec<u8>, price: u32) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			log::info!("total balance:{:?}", T::KittyCurrency::total_balance(&who));
+			//log::info!("total balance:{:?}", T::KittyCurrency::total_balance(&who));
 			ensure!(price > 0, Error::<T>::PriceTooLow);
 			ensure!(!KittyDetail::<T>::contains_key(&dna), Error::<T>::AlreadyExisted);
 			let gender = Self::kitty_gender(dna.clone())?;
 			let timestamp = T::Timestamp::now();
-			let kitty = Kitty { dna: dna.clone(), price: price.into(), gender: gender, owner: who.clone(), created_date: timestamp.as_secs() };
+			let kitty = Kitty {
+				dna: dna.clone(),
+				price: price.into(),
+				gender,
+				owner: who.clone(),
+				created_date: timestamp.as_secs(),
+			};
 
 			let mut current_number = Self::quantity();
 			<KittyDetail<T>>::insert(&dna, kitty);
@@ -117,7 +125,8 @@ pub mod pallet {
 			Kitties::<T>::put(current_number);
 
 			// use Value Query
-			OwnerDetail::<T>::mutate(&who, |list_kitty| list_kitty.push(dna.clone()));
+			OwnerDetail::<T>::try_mutate(&who, |list_kitty| list_kitty.try_push(dna.clone()))
+				.map_err(|_| Error::<T>::OutOfBound)?;
 
 			Self::deposit_event(Event::CreatedKitty(dna, who, timestamp.as_secs()));
 			Ok(())
@@ -130,7 +139,7 @@ pub mod pallet {
 			to: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(to != who, "Cannot transfer to owner");
+			ensure!(to != who, Error::<T>::OwnerAlready);
 			ensure!(KittyDetail::<T>::contains_key(&dna), Error::<T>::NoneExisted);
 			let sender_kitties = OwnerDetail::<T>::get(&who);
 			let mut index: i8 = -1;
@@ -141,12 +150,13 @@ pub mod pallet {
 			}
 			ensure!(index != -1, Error::<T>::NoneExisted);
 			// remove dna of kitty from the old owner's list
-			OwnerDetail::<T>::mutate(&who, |list_kitty| {
+			OwnerDetail::<T>::try_mutate(&who, |list_kitty| {
 				list_kitty.swap_remove(index.try_into().unwrap())
 			});
 
 			// insert dna of new kitty to the new owner's list
-			OwnerDetail::<T>::mutate(&to, |list_kitty| list_kitty.push(dna.clone()));
+			OwnerDetail::<T>::mutate(&to, |list_kitty| list_kitty.push(dna.clone()))
+				.map_err(|_| Error::<T>::OutOfBound)?;
 			Self::deposit_event(Event::TransferKitty(who, to, dna));
 			Ok(())
 		}
