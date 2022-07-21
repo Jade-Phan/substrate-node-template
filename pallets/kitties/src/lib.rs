@@ -1,13 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::pallet_prelude::*;
 use frame_support::storage::bounded_vec::BoundedVec;
 use frame_support::traits::UnixTime;
-use frame_support::traits::{ConstU8, Currency};
+use frame_support::traits::Get;
+use frame_support::traits::Currency;
+use frame_support::storage::types::StorageMap;
 use frame_system::pallet_prelude::*;
 pub use sp_std::vec::Vec;
-const LIMIT_BOUNDED: u8 = 10;
 pub use pallet::*;
 
 #[cfg(test)]
@@ -21,7 +21,6 @@ mod benchmarking;
 
 type BalanceOf<T> =
 	<<T as Config>::KittyCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type ListKitties = BoundedVec<Vec<u8>, ConstU8<LIMIT_BOUNDED>>;
 #[frame_support::pallet]
 pub mod pallet {
 	pub use super::*;
@@ -55,6 +54,7 @@ pub mod pallet {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		type KittyCurrency: Currency<Self::AccountId>;
 		type Timestamp: UnixTime;
+		type Max : Get<u8>;
 	}
 
 	#[pallet::pallet]
@@ -70,7 +70,7 @@ pub mod pallet {
 	// https://docs.substrate.io/v3/runtime/storage#declaring-storage-items
 	pub type Kitties<T> = StorageValue<_, u8, ValueQuery>;
 
-	#[pallet::storage]
+	#[pallet::storage ]
 	#[pallet::getter(fn kitty_detail)]
 	// Key :Id, Value: Student
 	pub(super) type KittyDetail<T: Config> =
@@ -80,7 +80,7 @@ pub mod pallet {
 	#[pallet::getter(fn ownership)]
 	// Key :Id, Value: Student
 	pub(super) type OwnerDetail<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, ListKitties, ValueQuery>;
+		StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<Vec<u8>, T::Max>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]

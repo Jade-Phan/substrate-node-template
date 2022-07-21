@@ -282,6 +282,7 @@ impl pallet_kitties::Config for Runtime {
 	type Event = Event;
 	type KittyCurrency = Balances;
 	type Timestamp = pallet_timestamp::Pallet<Runtime>;
+	type Max = ConstU8<10>;
 }
 
 impl pallet_coupling::Config for Runtime {
