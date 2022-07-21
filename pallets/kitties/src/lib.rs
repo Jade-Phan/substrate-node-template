@@ -20,7 +20,7 @@ mod tests;
 mod benchmarking;
 
 type BalanceOf<T> =
-	<<T as Config>::KittyCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+<<T as Config>::KittyCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 #[frame_support::pallet]
 pub mod pallet {
 	pub use super::*;
@@ -74,13 +74,13 @@ pub mod pallet {
 	#[pallet::getter(fn kitty_detail)]
 	// Key :Id, Value: Student
 	pub(super) type KittyDetail<T: Config> =
-		StorageMap<_, Blake2_128Concat, Vec<u8>, Kitty<T>, OptionQuery>;
+	StorageMap<_, Blake2_128Concat, Vec<u8>, Kitty<T>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn ownership)]
 	// Key :Id, Value: Student
 	pub(super) type OwnerDetail<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<Vec<u8>, T::Max>, ValueQuery>;
+	StorageMap<_, Blake2_128Concat, T::AccountId, BoundedVec<Vec<u8>, T::Max>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
@@ -127,7 +127,7 @@ pub mod pallet {
 			Kitties::<T>::put(current_number);
 
 			// use Value Query
-			OwnerDetail::<T>::try_mutate(&who, |list_kitty| list_kitty.try_push(dna.clone()))
+			OwnerDetail::<T>::mutate(&who, |list_kitty| list_kitty.push(dna.clone()))
 				.map_err(|_| Error::<T>::OutOfBound)?;
 
 			Self::deposit_event(Event::CreatedKitty(dna, who, timestamp.as_secs()));
@@ -145,8 +145,8 @@ pub mod pallet {
 			ensure!(KittyDetail::<T>::contains_key(&dna), Error::<T>::NoneExisted);
 
 			// remove dna of kitty from the old owner's list
-			<OwnerDetail<T>>::try_mutate(&who, |owned| {
-				if let Some(ind) = owned.iter().position(|&id| id == *dna) {
+			<OwnerDetail<T>>::mutate(&who, |owned| {
+				if let Some(ind) = owned.iter().position(|id| id == &dna) {
 					owned.swap_remove(ind);
 					return Ok(());
 				}
@@ -155,7 +155,7 @@ pub mod pallet {
 				.map_err(|_| Error::<T>::NotOwner)?;
 
 			// insert dna of new kitty to the new owner's list
-			OwnerDetail::<T>::try_mutate(&to, |list_kitty| list_kitty.try_push(dna.clone()))
+			OwnerDetail::<T>::mutate(&to, |list_kitty| list_kitty.push(dna.clone()))
 				.map_err(|_| Error::<T>::OutOfBound)?;
 			Self::deposit_event(Event::TransferKitty(who, to, dna));
 			Ok(())
