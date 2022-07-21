@@ -1,8 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-/// Edit this file to define custom logic or remove it if it is not needed.
-/// Learn more about FRAME and the core library of Substrate FRAME pallets:
-/// <https://docs.substrate.io/v3/runtime/frame>
+use frame_support::pallet_prelude::*;
+use frame_support::storage::types::StorageMap;
+use frame_support::traits::Currency;
+use frame_support::traits::UnixTime;
+use frame_support::traits::{Get, Randomness};
+use frame_system::pallet_prelude::*;
 pub use pallet::*;
 pub use sp_std::vec::Vec;
 
@@ -15,27 +18,26 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
+type BalanceOf<T> =
+	<<T as Config>::KittyCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 #[frame_support::pallet]
 pub mod pallet {
 	pub use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
-	//use sp_runtime::generic::BlockId::Number;
-
-	#[derive(TypeInfo, Encode, Decode, Debug, Clone)]
+	#[derive(Clone, Encode, Decode, PartialEq, Copy, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 	pub enum Gender {
 		Male,
 		Female,
 	}
 
-	#[derive(TypeInfo, Default, Encode, Decode)]
+	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	pub struct Kitty<T: Config> {
 		dna: Vec<u8>,
-		price: u32,
+		price: BalanceOf<T>,
 		gender: Gender,
 		owner: T::AccountId,
+		created_date: u64,
 	}
 
 	impl Default for Gender {
@@ -49,6 +51,10 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type KittyCurrency: Currency<Self::AccountId>;
+		type Timestamp: UnixTime;
+		type Max: Get<u8>;
+		type KittyRandomness: Randomness<Self::Hash, Self::BlockNumber>;
 	}
 
 	#[pallet::pallet]
@@ -67,17 +73,24 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn kitty_detail)]
 	// Key :Id, Value: Student
-	pub(super) type KittyDetail<T: Config> = StorageMap<_, Blake2_128Concat, Vec<u8>, Kitty<T>, OptionQuery>;
+	pub(super) type KittyDetail<T: Config> =
+		StorageMap<_, Blake2_128Concat, Vec<u8>, Kitty<T>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn ownership)]
 	// Key :Id, Value: Student
-	pub(super) type OwnerDetail<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<Vec<u8>>, ValueQuery>;
+	pub(super) type OwnerDetail<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, Vec<Vec<u8>>, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn nonce)]
+	// Key :Id, Value: Student
+	pub(super) type Nonce<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		CreatedKitty(Vec<u8>, T::AccountId),
+		CreatedKitty(Vec<u8>, T::AccountId, u64),
 		TransferKitty(T::AccountId, T::AccountId, Vec<u8>),
 	}
 
@@ -86,22 +99,34 @@ pub mod pallet {
 		PriceTooLow,
 		AlreadyExisted,
 		NoneExisted,
+		NotOwner,
 		WrongReceiver,
+		OwnerAlready,
+		OutOfBound,
+		IndexOutOfBounds,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-		pub fn create_kitty(origin: OriginFor<T>, dna: Vec<u8>, price: u32) -> DispatchResult {
+		pub fn create_kitty(origin: OriginFor<T>, price: u32) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(price>0, Error::<T>::PriceTooLow);
+			//log::info!("total balance:{:?}", T::KittyCurrency::total_balance(&who));
+			let nonce = Self::get_nonce();
+			let (rand, _) = T::KittyRandomness::random(&nonce);
+			let dna = rand.encode();
+			let kitties = OwnerDetail::<T>::get(&who);
+			ensure!(kitties.len() < T::Max::get().into(), Error::<T>::OutOfBound);
+			ensure!(price > 0, Error::<T>::PriceTooLow);
 			ensure!(!KittyDetail::<T>::contains_key(&dna), Error::<T>::AlreadyExisted);
-			let gender = Self::kitty_gender(dna.clone())?;
+			let gender = Self::kitty_gender(price)?;
+			let timestamp = T::Timestamp::now();
 			let kitty = Kitty {
 				dna: dna.clone(),
-				price: price,
-				gender: gender,
+				price: price.into(),
+				gender,
 				owner: who.clone(),
+				created_date: timestamp.as_secs(),
 			};
 
 			let mut current_number = Self::quantity();
@@ -114,25 +139,30 @@ pub mod pallet {
 			// use Value Query
 			OwnerDetail::<T>::mutate(&who, |list_kitty| list_kitty.push(dna.clone()));
 
-			Self::deposit_event(Event::CreatedKitty(dna, who));
+			Self::deposit_event(Event::CreatedKitty(dna, who, timestamp.as_secs()));
 			Ok(())
 		}
 
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-		pub fn transfer_kitty(origin: OriginFor<T>, dna: Vec<u8>, to: T::AccountId) -> DispatchResult {
+		pub fn transfer_kitty(
+			origin: OriginFor<T>,
+			dna: Vec<u8>,
+			to: T::AccountId,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(to != who, "Cannot transfer to owner");
-			ensure!(KittyDetail::<T>::contains_key(&dna),Error::<T>::NoneExisted);
-			let sender_kitties = OwnerDetail::<T>::get(&who);
-			let mut index: i8 = -1;
-			for i in 0..sender_kitties.len() {
-				if sender_kitties[i] == dna {
-					index = i.try_into().unwrap();
+			let kitties = OwnerDetail::<T>::get(&to);
+			ensure!(kitties.len() < T::Max::get().into(), Error::<T>::OutOfBound);
+			ensure!(to != who, Error::<T>::OwnerAlready);
+			ensure!(KittyDetail::<T>::contains_key(&dna), Error::<T>::NoneExisted);
+
+			// remove dna of kitty from the old owner's list
+			<OwnerDetail<T>>::mutate(&who, |owned| {
+				if let Some(ind) = owned.iter().position(|id| id == &dna) {
+					owned.swap_remove(ind);
+					return Ok(());
 				}
-			}
-			ensure!( index != -1, Error::<T>::NoneExisted);
-			// remove dna of kitty from the owner's list
-			OwnerDetail::<T>::mutate(&who, |list_kitty| list_kitty.swap_remove(index.try_into().unwrap()));
+				Err(())
+			});
 
 			// insert dna of new kitty to the new owner's list
 			OwnerDetail::<T>::mutate(&to, |list_kitty| list_kitty.push(dna.clone()));
@@ -143,12 +173,18 @@ pub mod pallet {
 }
 
 //helper function
-impl<T> Pallet<T> {
-	fn kitty_gender(dna: Vec<u8>) -> Result<Gender, Error<T>> {
+impl<T: Config> Pallet<T> {
+	fn kitty_gender(price: u32) -> Result<Gender, Error<T>> {
 		let mut result = Gender::Female;
-		if dna.len() % 2 == 0 {
+		if price % 2 == 0 {
 			result = Gender::Male
 		}
 		Ok(result)
+	}
+
+	fn get_nonce() -> Vec<u8> {
+		let nonce = Nonce::<T>::get();
+		Nonce::<T>::put(nonce.wrapping_add(1));
+		nonce.encode()
 	}
 }
