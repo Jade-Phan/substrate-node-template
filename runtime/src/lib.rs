@@ -49,8 +49,6 @@ pub use pallet_coupling;
 pub use pallet_demo;
 pub use pallet_kitties;
 pub use pallet_template;
-pub use pallet_test;
-
 use pallet_template::DoSomething;
 
 // Make the WASM binary available.
@@ -324,7 +322,6 @@ construct_runtime!(
 		KittiesModule: pallet_kitties,
 		CouplingModule: pallet_coupling,
 		LooselyCouplingModule: loosely_coupling,
-		Test: pallet_test,
 	}
 );
 
