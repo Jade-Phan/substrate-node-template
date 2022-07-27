@@ -18,6 +18,7 @@ pub use frame_support::{
 		IdentityFee, Weight,
 	},
 };
+use frame_support::traits::Get;
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 use pallet_grandpa::{
@@ -276,6 +277,11 @@ impl pallet_template::Config for Runtime {
 
 impl pallet_demo::Config for Runtime {
 	type Event = Event;
+}
+
+impl pallet_test::Config for Runtime {
+	type Event = Event;
+	type Max = ConstU8<1>;
 }
 
 impl pallet_kitties::Config for Runtime {

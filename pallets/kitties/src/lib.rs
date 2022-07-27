@@ -1,7 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::pallet_prelude::*;
-use frame_support::storage::bounded_vec::BoundedVec;
 use frame_support::storage::types::StorageMap;
 use frame_support::traits::Currency;
 use frame_support::traits::UnixTime;
