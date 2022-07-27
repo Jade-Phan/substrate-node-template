@@ -17,24 +17,35 @@ mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use frame_support::log;
+	use std::fmt;
 	pub use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	//use sp_runtime::generic::BlockId::Number;
 	pub type Id = u32;
 
-	#[derive(TypeInfo, Encode, Decode, Debug)]
+	#[derive(TypeInfo, Encode, Decode, Debug,Clone)]
 	pub enum Gender {
 		Male,
 		Female,
 	}
-	#[derive(TypeInfo, Default, Encode, Decode)]
+	#[derive(TypeInfo, Default, Encode, Decode,Debug)]
 	#[scale_info(skip_type_params(T))]
 	pub struct Student<T: Config> {
 		name: Vec<u8>,
 		age: u8,
 		gender: Gender,
 		account: T::AccountId,
+	}
+
+	impl<T: Config> fmt::Debug for Student<T> {
+		fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+			f.debug_struct("Point")
+				.field("x", &self.x)
+				.field("y", &self.y)
+				.finish()
+		}
 	}
 
 	impl Default for Gender {
@@ -97,11 +108,13 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(age > 20, Error::<T>::TooYoung);
 			let gender = Self::gen_gender(name.clone())?;
-			let student = Student { name: name.clone(), age, gender, account: who };
+			let student = Student { name: name.clone(), age, gender: gender.clone(), account: who };
 			// let current_id = Self::student_id();
 			// let current_id = StudentIds::<T>::get();
 			let mut current_id = <StudentIds<T>>::get();
-
+			log::info!("Current id: {}", current_id);
+			log::info!("Gender: {:?}", gender);
+			log::info!("Student: {:?}", student);
 			// Students::<T>::insert(current_id, student);
 			<Students<T>>::insert(current_id, student);
 

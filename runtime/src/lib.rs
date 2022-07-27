@@ -279,11 +279,6 @@ impl pallet_demo::Config for Runtime {
 	type Event = Event;
 }
 
-impl pallet_test::Config for Runtime {
-	type Event = Event;
-	type Max = ConstU8<1>;
-}
-
 impl pallet_kitties::Config for Runtime {
 	type Event = Event;
 	type KittyCurrency = Balances;
