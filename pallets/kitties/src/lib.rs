@@ -2,12 +2,13 @@
 
 use frame_support::pallet_prelude::*;
 use frame_support::storage::types::StorageMap;
+use frame_support::traits::{Get, Randomness};
 use frame_support::traits::Currency;
 use frame_support::traits::UnixTime;
-use frame_support::traits::{Get, Randomness};
 use frame_system::pallet_prelude::*;
-pub use pallet::*;
 pub use sp_std::vec::Vec;
+
+pub use pallet::*;
 
 #[cfg(test)]
 mod mock;
@@ -19,9 +20,12 @@ mod tests;
 mod benchmarking;
 
 type BalanceOf<T> =
-	<<T as Config>::KittyCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+<<T as Config>::KittyCurrency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
 #[frame_support::pallet]
 pub mod pallet {
+	use frame_support::dispatch::fmt;
+
 	pub use super::*;
 
 	#[derive(Clone, Encode, Decode, PartialEq, Copy, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -30,7 +34,7 @@ pub mod pallet {
 		Female,
 	}
 
-	#[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo)]
+	#[derive(Clone, Encode, Decode, PartialEq, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	pub struct Kitty<T: Config> {
 		dna: Vec<u8>,
@@ -38,6 +42,18 @@ pub mod pallet {
 		gender: Gender,
 		owner: T::AccountId,
 		created_date: u64,
+	}
+
+	impl<T: Config> fmt::Debug for Kitty<T> {
+		fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+			f.debug_struct("Kitty")
+				.field("dna", &self.dna)
+				.field("price", &self.price)
+				.field("gender", &self.gender)
+				.field("owner", &self.owner)
+				.field("created_date", &self.created_date)
+				.finish()
+		}
 	}
 
 	impl Default for Gender {
@@ -74,13 +90,13 @@ pub mod pallet {
 	#[pallet::getter(fn kitty_detail)]
 	// Key :Id, Value: Student
 	pub(super) type KittyDetail<T: Config> =
-		StorageMap<_, Blake2_128Concat, Vec<u8>, Kitty<T>, OptionQuery>;
+	StorageMap<_, Blake2_128Concat, Vec<u8>, Kitty<T>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn ownership)]
 	// Key :Id, Value: Student
 	pub(super) type OwnerDetail<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, Vec<Vec<u8>>, ValueQuery>;
+	StorageMap<_, Blake2_128Concat, T::AccountId, Vec<Vec<u8>>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn nonce)]

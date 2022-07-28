@@ -1,20 +1,26 @@
-//! Benchmarking setup for pallet-template
+use frame_benchmarking::{benchmarks, whitelisted_caller};
+use frame_benchmarking::vec;
+use frame_system::RawOrigin;
+
+#[allow(unused)]
+use crate::Pallet as Kitties;
 
 use super::*;
 
-#[allow(unused)]
-use crate::Pallet as Template;
-use frame_benchmarking::{benchmarks, whitelisted_caller};
-use frame_system::RawOrigin;
-
 benchmarks! {
-	do_something {
-		let s in 0 .. 100;
+	// tên của benchmark
+	create_kitty {
+		// khởi tạo các tham số cho extrinsic benchmark
+		let price = 123;
+
 		let caller: T::AccountId = whitelisted_caller();
-	}: _(RawOrigin::Signed(caller), s)
+	}: create_kitty(RawOrigin::Signed(caller), price)
+
+	// kiểm tra lại trạng thái storage khi thực hiện extrinsic xem đúng chưa
 	verify {
-		assert_eq!(Something::<T>::get(), Some(s));
+		assert_eq!(Kitties::<T>::quantity(), 1);
 	}
 
-	impl_benchmark_test_suite!(Template, crate::mock::new_test_ext(), crate::mock::Test);
+	// thực hiện benchmark với mock runtime, storage ban đầu.
+	impl_benchmark_test_suite!(Kitties, crate::mock::new_test_ext(), crate::mock::Test);
 }
