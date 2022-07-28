@@ -124,7 +124,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[pallet::weight(46_367_000 + T::DbWeight::get().reads_writes(6, 4))]
 		pub fn create_kitty(origin: OriginFor<T>, price: u32) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			//log::info!("total balance:{:?}", T::KittyCurrency::total_balance(&who));
@@ -159,7 +159,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[pallet::weight(37_404_000 + T::DbWeight::get().reads_writes(3, 2))]
 		pub fn transfer_kitty(
 			origin: OriginFor<T>,
 			dna: Vec<u8>,
