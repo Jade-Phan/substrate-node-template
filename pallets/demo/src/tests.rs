@@ -1,20 +1,36 @@
-use crate::{mock::*, Error};
 use frame_support::{assert_noop, assert_ok};
 
-#[test]
-fn it_works_for_default_value() {
-	new_test_ext().execute_with(|| {
-		// Dispatch a signed extrinsic.
-		assert_ok!(TemplateModule::do_something(Origin::signed(1), 42));
-		// Read pallet storage and assert an expected result.
-		assert_eq!(TemplateModule::something(), Some(42));
-	});
-}
+use crate::{Error, mock::*};
 
 #[test]
-fn correct_error_for_none_value() {
+fn create_student_successfully() {
 	new_test_ext().execute_with(|| {
-		// Ensure the expected error is thrown when no value is present.
-		assert_noop!(TemplateModule::cause_error(Origin::signed(1)), Error::<Test>::NoneValue);
+		assert_ok!(Demo::create_student(Origin::signed(1),b"student-name".to_vec(),24));
+		assert_eq!(Demo::student_id(), 1);
+	})
+}
+
+// #[test]
+// fn generate_gender() {
+// 	new_test_ext().execute_with(|| {
+// 		let len = b"student-name".to_vec().len();
+// 		let mut gender;
+// 		if len % 2 == 0 {
+// 			gender = Demo::Gender::Male;
+// 		} else {
+// 			gender = Demo::Gender::Female;
+// 		}
+// 		let res = Demo::gen_gender(b"student-name".to_vec()).unwrap();
+// 		assert_eq!(res, gender);
+// 	})
+// }
+
+#[test]
+fn create_student_fail_if_age_is_lower_than_20() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Demo::create_student(Origin::signed(1), b"student_name".to_vec(), 10),
+			Error::<Test>::TooYoung
+		);
 	});
 }

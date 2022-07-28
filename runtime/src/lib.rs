@@ -279,11 +279,6 @@ impl pallet_demo::Config for Runtime {
 	type Event = Event;
 }
 
-impl pallet_test::Config for Runtime {
-	type Event = Event;
-	type Max = ConstU8<1>;
-}
-
 impl pallet_kitties::Config for Runtime {
 	type Event = Event;
 	type KittyCurrency = Balances;
@@ -363,6 +358,7 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_template, TemplateModule]
+		[pallet_kitties, KittiesModule]
 	);
 }
 
