@@ -146,7 +146,11 @@ pub mod pallet {
 			};
 
 			let mut current_number = Self::quantity();
+			log::info!("Current id: {}", current_number);
+			log::info!("Gender: {:?}", gender);
+			log::info!("Kitty: {:?}", kitty);
 			<KittyDetail<T>>::insert(&dna, kitty);
+
 
 			current_number += 1;
 
