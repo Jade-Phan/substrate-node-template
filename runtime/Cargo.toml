@@ -47,7 +47,7 @@ pallet-utility = {version="4.0.0-dev", default-features = false, git = "https://
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24", optional = true }
 frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24", optional = true }
 hex-literal = { version = "0.3.4", optional = true }
-
+smallvec = { version = "1.9.0"}
 # Local Dependencies
 pallet-template = { version = "4.0.0-dev", default-features = false, path = "../pallets/template" }
 pallet-demo = { version = "4.0.0-dev", default-features = false, path = "../pallets/demo" }

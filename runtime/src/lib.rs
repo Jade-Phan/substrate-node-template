@@ -15,7 +15,7 @@ pub use frame_support::{
 	},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
-		IdentityFee, Weight,
+		IdentityFee, Weight,WeightToFeePolynomial, WeightToFeeCoefficients,WeightToFeeCoefficient
 	},
 };
 use frame_support::traits::Get;
@@ -35,6 +35,7 @@ use sp_runtime::{
 	MultiSignature,
 	traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, Verify}, transaction_validity::{TransactionSource, TransactionValidity},
 };
+use smallvec::smallvec;
 pub use sp_runtime::{Perbill, Permill};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -73,6 +74,11 @@ pub type Index = u32;
 
 /// A hash of some data used by the chain.
 pub type Hash = sp_core::H256;
+
+pub const UNITS: Balance = 10_000_000_000;
+pub const DOLLARS: Balance = UNITS; // 10_000_000_000
+pub const CENTS: Balance = DOLLARS / 100; // 100_000_000
+pub const MILLICENTS: Balance = CENTS / 1_000; // 100_000
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -292,7 +298,7 @@ impl pallet_nicks::Config for Runtime {
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;
-	type WeightToFee = IdentityFee<Balance>;
+	type WeightToFee = PolyWeightToFee;
 	type LengthToFee = IdentityFee<Balance>;
 	type FeeMultiplierUpdate = ();
 }
@@ -354,6 +360,21 @@ construct_runtime!(
 	}
 );
 
+pub struct PolyWeightToFee;
+impl WeightToFeePolynomial for PolyWeightToFee{
+	type Balance = Balance;
+	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+		// in Polkadot, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT:
+		let p = CENTS;
+		let q = 10 * Balance::from(ExtrinsicBaseWeight::get());
+		smallvec![WeightToFeeCoefficient {
+				degree: 1,
+				negative: false,
+				coeff_frac: Perbill::from_rational(p % q, q),
+				coeff_integer: p / q,
+			}]
+	}
+}
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
 /// Block header type as expected by this runtime.
@@ -511,6 +532,7 @@ impl_runtime_apis! {
 			System::account_nonce(account)
 		}
 	}
+
 
 	impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
 		fn query_info(

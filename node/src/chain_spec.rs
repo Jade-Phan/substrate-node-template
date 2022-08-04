@@ -1,11 +1,13 @@
 use node_template_runtime::{
 	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
-	SystemConfig, WASM_BINARY, TemplateModuleConfig,
+	SystemConfig, WASM_BINARY, TemplateModuleConfig,KittiesModuleConfig,Randomness
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{sr25519, Pair, Public};
+use sp_core::{sr25519, Pair, Public, H256};
+use sp_core::crypto::unwrap_or_default_ss58_version;
 use sp_finality_grandpa::AuthorityId as GrandpaId;
+use sp_runtime::codec::Encode;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 // The URL for the telemetry server.
@@ -65,6 +67,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 
 				],
 				true,
+				gen_dna(),
 			)
 		},
 		// Bootnodes
@@ -113,6 +116,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
 				],
 				true,
+				gen_dna(),
 			)
 		},
 		// Bootnodes
@@ -136,6 +140,7 @@ fn testnet_genesis(
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
+	kitties_init: Vec<(AccountId, Vec<u8>)>,
 ) -> GenesisConfig {
 	GenesisConfig {
 		system: SystemConfig {
@@ -159,6 +164,20 @@ fn testnet_genesis(
 		transaction_payment: Default::default(),
 		template_module:TemplateModuleConfig{
 			genesis_value:20u32
-		}
+		},
+		kitties_module: KittiesModuleConfig{
+			kitties: kitties_init
+		},
 	}
+}
+
+fn gen_dna() -> Vec<(AccountId,Vec<u8>)>{
+	let quantity = 3;
+	let mut dnas : Vec<(AccountId,Vec<u8>)> = Vec::new();
+	let owner = get_account_id_from_seed::<sr25519::Public>("Alice");
+	for i in 0..quantity {
+		let rand = H256::random();
+		dnas.push((owner.clone(),rand.encode()));
+	}
+	dnas
 }
