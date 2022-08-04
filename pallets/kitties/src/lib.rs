@@ -78,6 +78,49 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T:Config>{
+		pub kitties: Vec<(T::AccountId,Vec<u8>)>,
+	}
+
+	#[cfg(feature = "std")]
+	impl<T:Config> Default for GenesisConfig<T>{
+		fn default()-> GenesisConfig<T>{
+			GenesisConfig{
+				kitties : Default::default(),
+			}
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T:Config> GenesisBuild<T>  for GenesisConfig<T>{
+		fn build(&self) {
+			let mut nonce = 1;
+			for (ref owner, dna) in self.kitties.iter()  {
+				let list_kitty = OwnerDetail::<T>::get(&owner);
+				Nonce::<T>::put(nonce);
+				let mut current_number = Kitties::<T>::get();
+				current_number +=1;
+				Kitties::<T>::put(current_number);
+				nonce += 1;
+
+				let price = 10u32;
+				let gender = Pallet::<T>::kitty_gender(price).unwrap();
+				let timestamp = Pallet::<T>::Timestamp::now();
+				let kitty = Kitty {
+					dna: dna.clone(),
+					price: price.into(),
+					gender,
+					owner: owner.clone(),
+					created_date: timestamp.as_secs(),
+				};
+
+				<KittyDetail<T>>::insert(&dna, kitty);
+				OwnerDetail::<T>::mutate(&owner, |list_kitty| list_kitty.push(dna.clone()));
+			}
+		}
+	}
+
 	// The pallet's runtime storage items.
 	// https://docs.substrate.io/v3/runtime/storage
 	#[pallet::storage]
@@ -124,13 +167,12 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+
 		#[pallet::weight(46_367_000 + T::DbWeight::get().reads_writes(6, 4))]
 		pub fn create_kitty(origin: OriginFor<T>, price: u32) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			//log::info!("total balance:{:?}", T::KittyCurrency::total_balance(&who));
-			let nonce = Self::get_nonce();
-			let (rand, _) = T::KittyRandomness::random(&nonce);
-			let dna = rand.encode();
+			let dna = Self::gen_dna();
 			let kitties = OwnerDetail::<T>::get(&who);
 			ensure!(kitties.len() < T::Max::get().into(), Error::<T>::OutOfBound);
 			ensure!(price > 0, Error::<T>::PriceTooLow);
@@ -146,7 +188,11 @@ pub mod pallet {
 			};
 
 			let mut current_number = Self::quantity();
+			log::info!("Current id: {}", current_number);
+			log::info!("Gender: {:?}", gender);
+			log::info!("Kitty: {:?}", kitty);
 			<KittyDetail<T>>::insert(&dna, kitty);
+
 
 			current_number += 1;
 
@@ -185,6 +231,7 @@ pub mod pallet {
 			Self::deposit_event(Event::TransferKitty(who, to, dna));
 			Ok(())
 		}
+
 	}
 }
 
@@ -198,9 +245,11 @@ impl<T: Config> Pallet<T> {
 		Ok(result)
 	}
 
-	fn get_nonce() -> Vec<u8> {
+	fn gen_dna() -> Vec<u8> {
 		let nonce = Nonce::<T>::get();
 		Nonce::<T>::put(nonce.wrapping_add(1));
-		nonce.encode()
+		let n = nonce.encode();
+		let (rand, _) = T::KittyRandomness::random(&n);
+		rand.encode()
 	}
 }
